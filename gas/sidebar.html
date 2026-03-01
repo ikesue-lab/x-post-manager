@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <base target="_top" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 14px;
+      padding: 12px;
+      margin: 0;
+    }
+    h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+    }
+    p {
+      color: #555;
+      margin: 0 0 12px 0;
+      line-height: 1.4;
+    }
+    input[type="file"] {
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+    button {
+      background: #1d9bf0;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover {
+      background: #1a8cd8;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #message {
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      display: none;
+    }
+    #message.success {
+      display: block;
+      background: #d4edda;
+      color: #155724;
+    }
+    #message.error {
+      display: block;
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h3>アーカイブをインポート</h3>
+  <p>X（Twitter）の「データのアーカイブをダウンロード」で取得した ZIP、またはその中にある <strong>tweets.js</strong> を選択してください。</p>
+  <input type="file" id="fileInput" accept=".js,.json,.zip" />
+  <button id="uploadBtn" disabled>取り込み実行</button>
+  <div id="message"></div>
+
+  <script>
+    (function() {
+      var fileInput = document.getElementById('fileInput');
+      var uploadBtn = document.getElementById('uploadBtn');
+      var messageEl = document.getElementById('message');
+
+      function showMessage(text, isError) {
+        messageEl.textContent = text;
+        messageEl.className = isError ? 'error' : 'success';
+      }
+
+      function clearMessage() {
+        messageEl.textContent = '';
+        messageEl.className = '';
+        messageEl.style.display = 'none';
+      }
+
+      fileInput.addEventListener('change', function() {
+        uploadBtn.disabled = !fileInput.files || fileInput.files.length === 0;
+        clearMessage();
+      });
+
+      uploadBtn.addEventListener('click', function() {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          showMessage('ファイルを選択してください。', true);
+          return;
+        }
+
+        uploadBtn.disabled = true;
+        showMessage('処理中…', false);
+        messageEl.style.display = 'block';
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var dataUrl = e.target.result;
+          var base64 = dataUrl.indexOf(',') >= 0 ? dataUrl.split(',')[1] : '';
+
+          google.script.run
+            .withSuccessHandler(function(result) {
+              uploadBtn.disabled = false;
+              if (result.success) {
+                showMessage(result.message, false);
+                fileInput.value = '';
+              } else {
+                showMessage(result.message || 'エラーが発生しました。', true);
+              }
+            })
+            .withFailureHandler(function(err) {
+              uploadBtn.disabled = false;
+              showMessage('エラー: ' + (err.message || String(err)), true);
+            })
+            .processUploadedFile(base64, file.name);
+        };
+        reader.onerror = function() {
+          uploadBtn.disabled = false;
+          showMessage('ファイルの読み込みに失敗しました。', true);
+        };
+        reader.readAsDataURL(file);
+      });
+    })();
+  </script>
+</body>
+</html>
