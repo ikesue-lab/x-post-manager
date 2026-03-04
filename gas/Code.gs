@@ -127,7 +127,11 @@ function parseTweetsJs(content) {
     }
   }
   if (!Array.isArray(arr)) return [];
-  return arr.map(tweetToRow).filter(function (r) { return r && r.id; });
+  // 配列要素が { "tweet": { ... } } のラップ形式の場合は中身を取り出す
+  const tweets = arr.map(function (item) {
+    return item && item.tweet != null ? item.tweet : item;
+  });
+  return tweets.map(tweetToRow).filter(function (r) { return r && r.id; });
 }
 
 function tweetToRow(t) {

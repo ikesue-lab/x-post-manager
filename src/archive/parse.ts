@@ -5,20 +5,27 @@ const PERMALINK_BASE = "https://x.com/i/status/";
 /**
  * tweets.js の生文字列から JSON 配列を抽出する
  * 形式: window.YTD.tweet.part0 = [ ... ] または window.YTD.tweets.part0 = [ ... ]
+ * 配列要素が { "tweet": { ... } } のラップ形式の場合も展開する
  */
 export function extractTweetsJson(raw: string): ArchiveTweet[] {
   const trimmed = raw.trim();
   // window.YTD.tweet.part0 = または window.YTD.tweets.part0 = を除去
   const match = trimmed.match(/^window\.YTD\.tweets?\.part\d+\s*=\s*(\[[\s\S]*\])\s*;?\s*$/m);
+  let arr: unknown[];
   if (match) {
-    return JSON.parse(match[1]) as ArchiveTweet[];
+    arr = JSON.parse(match[1]) as unknown[];
+  } else {
+    const arrayMatch = trimmed.match(/(\[[\s\S]*\])/);
+    if (!arrayMatch) {
+      throw new Error("tweets.js の形式が想定と異なります。window.YTD.tweet.part0 = [...] を含むファイルを指定してください。");
+    }
+    arr = JSON.parse(arrayMatch[1]) as unknown[];
   }
-  // そのまま配列としてパースを試行（一部アーカイブ形式）
-  const arrayMatch = trimmed.match(/(\[[\s\S]*\])/);
-  if (arrayMatch) {
-    return JSON.parse(arrayMatch[1]) as ArchiveTweet[];
-  }
-  throw new Error("tweets.js の形式が想定と異なります。window.YTD.tweet.part0 = [...] を含むファイルを指定してください。");
+  // 配列要素が { "tweet": { ... } } のラップ形式の場合は中身を取り出す
+  return arr.map((item: unknown) => {
+    const obj = item as Record<string, unknown>;
+    return obj && typeof obj.tweet === "object" && obj.tweet != null ? (obj.tweet as ArchiveTweet) : (item as ArchiveTweet);
+  });
 }
 
 function toNum(v: number | string | undefined): number {
